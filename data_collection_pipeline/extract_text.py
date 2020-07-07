@@ -146,6 +146,9 @@ def scrape_urls(ticker):
     meta data to news.recommendations.ticker.news document.
     """
     import pymongo as pm
+    import time
+    from random import uniform
+    
     logger = create_logger()
 
     client = pm.MongoClient('mongodb://localhost:27017')
@@ -167,6 +170,9 @@ def scrape_urls(ticker):
     
     scraped = 0
     for url in urls_to_process:
+        wait = uniform(10,30)
+        logger.info(f'||{ticker}||........Sleeping for {wait} seconds..........')
+        time.sleep(wait)
         doc = scrape(url)
         if doc == 404:
             logger.info(f'URL {url} got 404. Deleting from DB')
@@ -185,7 +191,7 @@ def create_logger():
     # multiprocessing.log_to_stderr()
     logger = multiprocessing.get_logger()
     logger.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s| %(levelname)s| %(message)s')
+    formatter = logging.Formatter('[%(asctime)s| %(levelname)s| %(processName)s] %(message)s')
     handler = logging.FileHandler('logs/multi_text_extraction.log')
     handler.setFormatter(formatter)
     if not len(logger.handlers): 
