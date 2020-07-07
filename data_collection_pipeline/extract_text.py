@@ -28,12 +28,17 @@ def get_html_from_url(url):
 
     try:
         url_get = requests.get(url, headers=headers, timeout=3)
+        if url_get.status_code == 404:
+            url = f'https://www.google.com/search?&q=cache%3Ahttp%3A{url}'
+            logger.info(f'Trying Google cache for {url}')
+            url_get = requests.get(url, headers=headers, timeout=3)
+            if url_get.status_code == 404:
+                logger.info(f'No page. Status {url_get.status_code}')
+                return 404
+        
         if url_get.status_code == 200:
-            logger.info(f'Successfully got html for {url}')
-            return url_get.text
-        elif url_get.status_code == 404:
-            logger.info(f'No page. Status {url_get.status_code}')
-            return 404
+                logger.info(f'Successfully got html for {url}')
+                return url_get.text
         else:
             logger.info(f'Cannot get html for {url}. Error: {url_get.status_code}')
             return False
@@ -148,13 +153,13 @@ def scrape_urls(ticker):
     import pymongo as pm
     import time
     from random import uniform
-    
+
     logger = create_logger()
 
     client = pm.MongoClient('mongodb://localhost:27017')
     c = client['news']['recommendations']
 
-    logger.info(f'Processing {ticker}')
+    logger.info(f'================>>>>>>>>>>Processing {ticker}<<<<<<<<===================')
 
     urls_to_process = c.find_one(
             {'ticker':ticker},
@@ -188,7 +193,6 @@ def scrape_urls(ticker):
 
 def create_logger():
     import multiprocessing, logging
-    # multiprocessing.log_to_stderr()
     logger = multiprocessing.get_logger()
     logger.setLevel(logging.INFO)
     formatter = logging.Formatter('[%(asctime)s| %(levelname)s| %(processName)s] %(message)s')
