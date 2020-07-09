@@ -1,3 +1,26 @@
+def get_webdriver(browser=None, quit=False):
+    """Selenium webdriver helper
+    """
+    from selenium import webdriver
+    from selenium.webdriver.firefox.options import Options
+    import logging
+
+    if browser:
+        return browser
+    elif browser and quit:
+        browser.quit()
+        logging.info(':--- Quit headless browser')
+    else:
+        # profile = webdriver.FirefoxProfile()
+        # profile.set_preference(
+        #     'general.useragent.override', get_ua()
+        # )
+        options = Options()
+        options.add_argument("--headless")
+        browser = webdriver.Firefox(options=options, executable_path=r'geckodriver')
+        logging.info(':--- Initialized headless browser')
+        return browser
+
 def get_ua():
     """Returns random browser User-Agent
     """
@@ -22,50 +45,73 @@ def get_html_from_url(url):
     
     Returns:
     --------
-    response    : dict, keys:
-        status_code : requests server response status code or None
-        html        : str, html of the page or None
+    response    : dict, {
+            'status_code' : requests server response status code or None
+            'html'        : str, html of the page or None
+        }
     """
     import requests
     import validators 
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.common.exceptions import TimeoutException
+    
     
     logger = create_logger()
-    logger.info(f'Getting html from {url}')
-
-    UA = get_ua()
-    headers = {"User-Agent":UA}
-    requests.adapters.DEFAULT_RETRIES = 1
+    # logger.info(f'==-- Getting HTML from {url}')
 
     if validators.url(url):
         try:
-            url_google = f'https://www.google.com/search?&q=cache:{url}'
-            logger.info(f'==-- Trying GOOGLE CACHE for ::{url}::')
-            url_get = requests.get(url_google, headers=headers, timeout=3)
-            if url_get.status_code == 404:
-                url_outline = f'https://outline.com/{url}'
-                logger.info(f'==-- Trying OUTLINE.COM for ::{url}::')
-                url_get = requests.get(url_outline, headers=headers, timeout=10)
-                if url_get.status_code == 404:
-                    logger.info(f'==-- Trying ORIGINAL SOURCE for ::{url}::')
+            url_outline = f'https://outline.com/{url}'
+            browser = get_webdriver()
+            logger.info(f'==-- Trying OUTLINE.COM for {url_outline}')
+            browser.get(url_outline)
+            try:
+                WebDriverWait(browser, 3).until(
+                    EC.presence_of_all_elements_located((By.CLASS_NAME, 'article-wrapper'))
+                )
+            except TimeoutException:
+                logger.info(f'==-- WAITING FOR OUTLINE PAGE TO LOAD {url_outline}')
+            finally:
+                html = browser.page_source
+            browser.quit()
+            
+            if "We're sorry. This page failed to Outline." in html:
+                logger.info(f'==-- FAILED OUTLINE for {url_outline}')
+
+                headers = {"User-Agent":get_ua()}
+                requests.adapters.DEFAULT_RETRIES = 1
+
+                url_google = f'https://www.google.com/search?&q=cache:{url}'
+                logger.info(f'==-- Trying GOOGLE CACHE for {url_google}')
+                url_get = requests.get(url_google, headers=headers, timeout=3)
+
+                if 'class="g-recaptcha"' in url_get.text:
+                    logger.info(f'==-- FAILED GOOGLE CACHE for {url_google}')
+                    logger.info(f'==-- Trying ORIGINAL SOURCE for {url}')
                     url_get = requests.get(url, headers=headers, timeout=5)
-                    if url_get.status_code == 404:
-                        logger.info(f'==-- PAGE NOT FOUND. Status: {url_get.status_code}')
-            if url_get.status_code == 200:
-                    logger.info(f'==-- SUCCESS! RETURNING HTML FOR ::{url}::')
-            else:
-                logger.info(f'==-- BAD RESPONSE FOR ::{url}::. STATUS: {url_get.status_code}')
+                    
+                    if url_get.status_code != 200:
+                        logger.info(f'==-- BAD RESPONSE FOR {url}.\n STATUS: {url_get.status_code}')
+                        return  {
+                            'status_code' : url_get.status_code, 
+                            'html'        : None
+                        }
+                html = url_get.text
             return {
-                'status_code' : url_get.status_code, 
-                'html'        : url_get.text
-                }
+                'status_code': True,
+                'html' : html
+            }
         except Exception as e:
-            logger.info(f'==-- ERROR REQUESTING ::{url}::. Error: {e}')
+            logger.info(f'==-- ERROR REQUESTING {url}.\n Error: {e}')
     else:
-        logger.info(f'==-- NOT VALID URL ::{url}::')
-    return {
-        'status_code' : None, 
-        'html'        : None
+        logger.info(f'==-- NOT A VALID URL {url}')
+        return  {
+            'status_code' : None, 
+            'html'        : None
         }
+    
 
 def scrape(url):
     """
@@ -86,13 +132,13 @@ def scrape(url):
             'keywords' : article meta_keywords,
             'summary'  : article summary
         }
-    False       : bool, if get request fails
+    False       : bool, if get request fails or html < 500
     """
     from newspaper import Article, Config
     import re
     logger = create_logger()
 
-    logger.info(f"==|| Trying extracting TEXT from ::{url}::")
+    logger.info(f"==|| Trying extracting TEXT from {url}")
     config = Config()
     config.memoize_articles = False
     config.fetch_images = False
@@ -101,29 +147,35 @@ def scrape(url):
     config.request_timeout = 5
     config.number_threads = 8
 
-    html = get_html_from_url(url)
-    if html == 404:
-        return 404
+    response = get_html_from_url(url)
 
-    if html and len(html)>300:
-        article = Article(url=url, config=config)
-        article.download_state = 2
-        article.html = html
-        article.parse()
-        article.nlp()
-
-        logger.info(f'Extracted {article.title} from {url}')
-        return {
-            'url'      : url,
-            'date'     : article.publish_date,
-            'title'    : article.title,
-            'text'     : " ".join(re.split(r'[\n\t]+', article.text)),
-            'keywords' : article.keywords,
-            'summary'  : article.summary
-        }
+    if response['status_code'] and len(response['html']) > 500:
+        try:
+            article = Article(url=url, config=config)
+            article.download_state = 2
+            article.html = response['html']
+            article.parse()
+            article.nlp()
+            
+            if len((article.text).split()) > 200:
+                logger.info(f'==|| Extracted TEXT from URL: {url}.\n Title: "{article.title}"')
+                return {
+                    'url'      : url,
+                    'date'     : article.publish_date,
+                    'title'    : article.title,
+                    'text'     : " ".join(re.split(r'[\n\t]+', article.text)),
+                    'keywords' : article.keywords,
+                    'summary'  : article.summary
+                }
+            else:
+                logger.info(
+                    f'''==|| Could not extract TEXT from {url}.\n 
+                    Article too short: {len(article.text.split())} words''')
+        except Exception as e:
+            logger.info(f'==|| Could not extract TEXT from {url}.\n Error: {e}')
     else:
-        logger.info(f'Could not extract data from {url}')
-        return False
+        logger.info(f'==|| Could not extract TEXT from {url}')
+    return False
 
 def delete_url(ticker, url):
     import pymongo as pm
@@ -196,7 +248,7 @@ def scrape_urls(ticker):
     
     scraped = 0
     for url in urls_to_process:
-        wait = uniform(10,30)
+        wait = uniform(3,11)
         logger.info(f'||{ticker}||........Sleeping for {wait} seconds..........')
         time.sleep(wait)
         doc = scrape(url)
@@ -209,6 +261,7 @@ def scrape_urls(ticker):
             scraped += 1
         else:
             logger.info(f'Did not get the text for {url}')
+        break
     
     logger.info(f'{ticker}: Scraped {scraped} our of {len(urls_to_process)} URLs')
 
@@ -238,12 +291,10 @@ if __name__ == '__main__':
 
     logger.info('Starting text extraction')
 
-    # p = Pool()
-    # tickers = si.tickers_sp500()
-    # result = p.map_async(scrape_urls, tickers)
-    # p.close()
-    # p.join()
-
-    print(scrape('https://www.fool.com/investing/2020/06/08/could-apple-be-a-millionaire-maker-stock.aspx'))
+    p = Pool()
+    tickers = si.tickers_sp500()
+    result = p.map_async(scrape_urls, tickers)
+    p.close()
+    p.join()
 
     logger.info(f'Finished text extraction')
