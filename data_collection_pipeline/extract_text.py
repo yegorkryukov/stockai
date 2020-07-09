@@ -261,7 +261,6 @@ def scrape_urls(ticker):
             scraped += 1
         else:
             logger.info(f'Did not get the text for {url}')
-        break
     
     logger.info(f'{ticker}: Scraped {scraped} our of {len(urls_to_process)} URLs')
 
