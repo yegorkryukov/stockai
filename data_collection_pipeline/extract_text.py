@@ -9,6 +9,7 @@ def get_html_from_url(url):
     --------
     html        : str, html of the page
     False       : bool, if get request fails
+    status_code : number, requests response status code if other than 200
     """
     import requests
     from random import randint
@@ -27,23 +28,28 @@ def get_html_from_url(url):
     requests.adapters.DEFAULT_RETRIES = 1
 
     try:
-        url_get = requests.get(url, headers=headers, timeout=3)
+        url_google = f'https://www.google.com/search?&q=cache:{url}'
+        logger.info(f'==-- Trying GOOGLE CACHE for ::{url}::')
+        url_get = requests.get(url_google, headers=headers, timeout=3)
         if url_get.status_code == 404:
-            url = f'https://www.google.com/search?&q=cache%3Ahttp%3A{url}'
-            logger.info(f'Trying Google cache for {url}')
-            url_get = requests.get(url, headers=headers, timeout=3)
+            url_outline = f'https://outline.com/{url}'
+            logger.info(f'==-- Trying OUTLINE.COM for ::{url}::')
+            url_get = requests.get(url_outline, headers=headers, timeout=10)
             if url_get.status_code == 404:
-                logger.info(f'No page. Status {url_get.status_code}')
-                return 404
+                logger.info(f'==-- Trying ORIGINAL SOURCE for ::{url}::')
+                url_get = requests.get(url, headers=headers, timeout=5)
+                if url_get.status_code == 404:
+                    logger.info(f'==-- PAGE NOT FOUND. Status: {url_get.status_code}')
+                    return 404
         
         if url_get.status_code == 200:
-                logger.info(f'Successfully got html for {url}')
+                logger.info(f'==-- SUCCESS! RETURNING HTML FOR ::{url}::')
                 return url_get.text
         else:
-            logger.info(f'Cannot get html for {url}. Error: {url_get.status_code}')
+            logger.info(f'==-- BAD RESPONSE FOR ::{url}::. STATUS: {url_get.status_code}')
             return False
     except Exception as e:
-        logger.info(f'Cannot get html for {url}. Error: {e}')
+        logger.info(f'==-- ERROR FOR ::{url}::. Error: {e}')
         return False
 
 def scrape(url):
@@ -195,7 +201,9 @@ def create_logger():
     import multiprocessing, logging
     logger = multiprocessing.get_logger()
     logger.setLevel(logging.INFO)
-    formatter = logging.Formatter('[%(asctime)s| %(levelname)s| %(processName)s] %(message)s')
+    formatter = logging.Formatter(
+        '[%(asctime)s| %(levelname)s| %(processName)s] %(message)s',
+        '%Y-%m-%d %H:%M:%S')
     handler = logging.FileHandler('logs/multi_text_extraction.log')
     handler.setFormatter(formatter)
     if not len(logger.handlers): 
@@ -215,10 +223,12 @@ if __name__ == '__main__':
 
     logger.info('Starting text extraction')
 
-    p = Pool()
-    tickers = si.tickers_sp500()
-    result = p.map_async(scrape_urls, tickers)
-    p.close()
-    p.join()
+    # p = Pool()
+    # tickers = si.tickers_sp500()
+    # result = p.map_async(scrape_urls, tickers)
+    # p.close()
+    # p.join()
+
+    print(scrape('https://www.fool.com/investing/2020/06/08/could-apple-be-a-millionaire-maker-stock.aspx'))
 
     logger.info(f'Finished text extraction')
