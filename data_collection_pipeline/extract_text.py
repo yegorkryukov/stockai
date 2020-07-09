@@ -1,3 +1,18 @@
+def get_UA():
+    """Returns random browser User-Agent
+    """
+    from random import randint
+
+    UA = [
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36',
+        'Mozilla/5.0 CK={} (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.157 Safari/537.36'
+    ]
+    return UA[randint(0,len(UA)-1)]
+
+
 def get_html_from_url(url):
     """Returns html content of a page at `url` 
 
@@ -12,19 +27,12 @@ def get_html_from_url(url):
     status_code : number, requests response status code if other than 200
     """
     import requests
-    from random import randint
+    
     logger = create_logger()
-
-    UA = [
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36',
-        'Mozilla/5.0 CK={} (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.157 Safari/537.36'
-    ]
-
     logger.info(f'Getting html from {url}')
-    headers = {"User-Agent":UA[randint(0,len(UA)-1)]}
+
+    UA = get_UA()
+    headers = {"User-Agent":UA}
     requests.adapters.DEFAULT_RETRIES = 1
 
     try:
@@ -77,12 +85,12 @@ def scrape(url):
     import re
     logger = create_logger()
 
-    logger.info(f"Processing {url}")
+    logger.info(f"==|| Trying extracting TEXT from {url}")
     config = Config()
     config.memoize_articles = False
     config.fetch_images = False
     config.language = 'en'
-    config.browser_user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:79.0) Gecko/20100101 Firefox/79.0'
+    config.browser_user_agent = get_UA()
     config.request_timeout = 5
     config.number_threads = 8
 
