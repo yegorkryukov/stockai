@@ -1,4 +1,4 @@
-def get_UA():
+def get_ua():
     """Returns random browser User-Agent
     """
     from random import randint
@@ -22,43 +22,50 @@ def get_html_from_url(url):
     
     Returns:
     --------
-    html        : str, html of the page
-    False       : bool, if get request fails
-    status_code : number, requests response status code if other than 200
+    response    : dict, keys:
+        status_code : requests server response status code or None
+        html        : str, html of the page or None
     """
     import requests
+    import validators 
     
     logger = create_logger()
     logger.info(f'Getting html from {url}')
 
-    UA = get_UA()
+    UA = get_ua()
     headers = {"User-Agent":UA}
     requests.adapters.DEFAULT_RETRIES = 1
 
-    try:
-        url_google = f'https://www.google.com/search?&q=cache:{url}'
-        logger.info(f'==-- Trying GOOGLE CACHE for ::{url}::')
-        url_get = requests.get(url_google, headers=headers, timeout=3)
-        if url_get.status_code == 404:
-            url_outline = f'https://outline.com/{url}'
-            logger.info(f'==-- Trying OUTLINE.COM for ::{url}::')
-            url_get = requests.get(url_outline, headers=headers, timeout=10)
+    if validators.url(url):
+        try:
+            url_google = f'https://www.google.com/search?&q=cache:{url}'
+            logger.info(f'==-- Trying GOOGLE CACHE for ::{url}::')
+            url_get = requests.get(url_google, headers=headers, timeout=3)
             if url_get.status_code == 404:
-                logger.info(f'==-- Trying ORIGINAL SOURCE for ::{url}::')
-                url_get = requests.get(url, headers=headers, timeout=5)
+                url_outline = f'https://outline.com/{url}'
+                logger.info(f'==-- Trying OUTLINE.COM for ::{url}::')
+                url_get = requests.get(url_outline, headers=headers, timeout=10)
                 if url_get.status_code == 404:
-                    logger.info(f'==-- PAGE NOT FOUND. Status: {url_get.status_code}')
-                    return 404
-        
-        if url_get.status_code == 200:
-                logger.info(f'==-- SUCCESS! RETURNING HTML FOR ::{url}::')
-                return url_get.text
-        else:
-            logger.info(f'==-- BAD RESPONSE FOR ::{url}::. STATUS: {url_get.status_code}')
-            return False
-    except Exception as e:
-        logger.info(f'==-- ERROR FOR ::{url}::. Error: {e}')
-        return False
+                    logger.info(f'==-- Trying ORIGINAL SOURCE for ::{url}::')
+                    url_get = requests.get(url, headers=headers, timeout=5)
+                    if url_get.status_code == 404:
+                        logger.info(f'==-- PAGE NOT FOUND. Status: {url_get.status_code}')
+            if url_get.status_code == 200:
+                    logger.info(f'==-- SUCCESS! RETURNING HTML FOR ::{url}::')
+            else:
+                logger.info(f'==-- BAD RESPONSE FOR ::{url}::. STATUS: {url_get.status_code}')
+            return {
+                'status_code' : url_get.status_code, 
+                'html'        : url_get.text
+                }
+        except Exception as e:
+            logger.info(f'==-- ERROR REQUESTING ::{url}::. Error: {e}')
+    else:
+        logger.info(f'==-- NOT VALID URL ::{url}::')
+    return {
+        'status_code' : None, 
+        'html'        : None
+        }
 
 def scrape(url):
     """
@@ -85,12 +92,12 @@ def scrape(url):
     import re
     logger = create_logger()
 
-    logger.info(f"==|| Trying extracting TEXT from {url}")
+    logger.info(f"==|| Trying extracting TEXT from ::{url}::")
     config = Config()
     config.memoize_articles = False
     config.fetch_images = False
     config.language = 'en'
-    config.browser_user_agent = get_UA()
+    config.browser_user_agent = get_ua()
     config.request_timeout = 5
     config.number_threads = 8
 
