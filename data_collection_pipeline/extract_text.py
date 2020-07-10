@@ -161,7 +161,7 @@ def scrape(url):
                 logger.info(f'==|| Extracted TEXT from URL: {url}.\n Title: "{article.title}"')
                 return {
                     'url'      : url,
-                    'date'     : article.publish_date,
+                    'datetime'     : article.publish_date,
                     'title'    : article.title,
                     'text'     : " ".join(re.split(r'[\n\t]+', article.text)),
                     'keywords' : article.keywords,
