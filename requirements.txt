@@ -1,0 +1,9 @@
+flask
+scikit-learn
+pandas
+boto3
+BeautifulSoup
+selenium
+psaw
+pymongo
+yahoo_fin
