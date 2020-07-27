@@ -61,7 +61,7 @@ def get_urls_yahoo(ticker):
     from selenium import webdriver
     import time
     from random import randint
-    from selenium.webdriver.firefox.options import Options
+
     logger = create_logger()
 
     logger.info(f'Finance.yahoo.com: {ticker}: getting URLs')
@@ -73,8 +73,6 @@ def get_urls_yahoo(ticker):
     urls_list = set()
     
     try: 
-        options = Options()
-        options.add_argument("--headless")
         browser = webdriver.PhantomJS()
         browser.get(url)
         logger.info(f'Finance.yahoo.com: {ticker}: Headless Firefox Initialized for URL: {url}')
