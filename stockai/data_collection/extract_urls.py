@@ -179,7 +179,7 @@ def save_urls_to_db(urls, ticker=''):
             {'urls_to_process':1, '_id':0}
         )
 
-        if len(qty_stored_to_process_before) > 0:
+        if qty_stored_to_process_before and len(qty_stored_to_process_before) > 0:
             qty_stored_to_process_before = len([
                 _ for _ 
                 in qty_stored_to_process_before['urls_to_process']
