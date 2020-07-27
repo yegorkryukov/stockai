@@ -2,7 +2,7 @@ def get_html_from_url(url):
     """Returns html content of the page at url 
     """
     import requests
-    import logging
+    logger = create_logger()
     headers = {"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:79.0) Gecko/20100101 Firefox/79.0"}
     requests.adapters.DEFAULT_RETRIES = 1
 
@@ -11,10 +11,10 @@ def get_html_from_url(url):
         if url_get.status_code == 200:
             return url_get.text
         else:
-            logging.info(f'Cannot get html for {url}. Error: {url_get.status_code}')
+            logger.info(f'Cannot get html for {url}. Error: {url_get.status_code}')
             return False
     except Exception as e:
-        logging.info(f'Cannot get html for {url}. Error: {e}')
+        logger.info(f'Cannot get html for {url}. Error: {e}')
         return False
 
 def get_urls_finviz(ticker):
@@ -28,10 +28,10 @@ def get_urls_finviz(ticker):
     ------
     urls   : list, list of urls
     """
-    import logging
+    logger = create_logger()
     from bs4 import BeautifulSoup
 
-    logging.info(f'Getting finviz.com news urls for {ticker}')
+    logger.info(f'Finviz.com: {ticker}: getting news urls')
 
     url = 'https://finviz.com/quote.ashx?t=' + str(ticker)
 
@@ -42,9 +42,9 @@ def get_urls_finviz(ticker):
         news_table = html.find(id='news-table')
 
         urls = [row.a['href'] for row in news_table.findAll('tr')]
-        logging.info(f'Found {len(urls)} URLs at finviz.com for {ticker}')
+        logger.info(f'Finviz.com: {ticker}: FOUND {len(urls)} URLs')
         return urls
-    logging.info(f'No URLs found at finviz.com for {ticker}')
+    logger.info(f'Finviz.com: {ticker}: No URLs FOUND')
     return False
 
 def get_urls_yahoo(ticker):
@@ -62,8 +62,9 @@ def get_urls_yahoo(ticker):
     import time
     from random import randint
     from selenium.webdriver.firefox.options import Options
+    logger = create_logger()
 
-    logging.info(f'Getting finance.yahoo.com news urls for {ticker}')
+    logger.info(f'Finance.yahoo.com: {ticker}: getting URLs')
 
     js = """var scrollingElement = (document.scrollingElement || document.body);
                     scrollingElement.scrollTop = scrollingElement.scrollHeight;"""
@@ -76,9 +77,9 @@ def get_urls_yahoo(ticker):
         options.add_argument("--headless")
         browser = webdriver.Firefox(options=options, executable_path=r'geckodriver')
         browser.get(url)
-        logging.info(f'Headless Firefox Initialized for URL: {url}')
+        logger.info(f'Finance.yahoo.com: {ticker}: Headless Firefox Initialized for URL: {url}')
         if browser.current_url == f'https://finance.yahoo.com/lookup?s={ticker}':
-            logging.info(f'Extracting URLs failed. Ticker {ticker} does not exist')
+            logger.info(f'Finance.yahoo.com: {ticker}: Extracting URLs failed. Ticker {ticker} does not exist')
             return False
         browser.execute_script(js)
         time.sleep(randint(3,10))
@@ -89,20 +90,20 @@ def get_urls_yahoo(ticker):
             browser.execute_script(js)
             time.sleep(randint(3,5))
             items_list = browser.find_elements_by_xpath('//h3/a')
-            logging.info(f'{ticker} found {len(items_list)} urls so far')
+            logger.info(f'Finance.yahoo.com: {ticker}: found {len(items_list)} urls so far')
 
         for item in items_list:
             if not ('gemini' in item.get_attribute('href')):
                 urls_list.add(item.get_attribute('href'))
 
-        logging.info(f'Found {len(urls_list)} urls for {ticker}')
+        logger.info(f'Finance.yahoo.com: {ticker}: Found {len(urls_list)} urls')
     except Exception as e:
-        logging.info(f'Extracting URLs failed. Error:\n{e}')
+        logger.info(f'Finance.yahoo.com: {ticker}: Extracting URLs failed. Error:\n{e}')
 
     browser.quit()
     if urls_list:
         return list(urls_list)
-    logging.info(f'No URLs found at finance.yahoo.com for {ticker}')
+    logger.info(f'Finance.yahoo.com: {ticker}: No URLs found')
     return False
 
 def get_urls_reddit(start_date='', subreddits=[], stop_urls=[]):
@@ -123,6 +124,7 @@ def get_urls_reddit(start_date='', subreddits=[], stop_urls=[]):
     from dateutil import parser
     from psaw import PushshiftAPI
     import pandas as pd
+    logger = create_logger()
 
     api = PushshiftAPI()
 
@@ -136,7 +138,7 @@ def get_urls_reddit(start_date='', subreddits=[], stop_urls=[]):
 
     urls = set()
     for subreddit in subreddits:
-        logging.info(f'Starting URLs collection for sub {subreddit} from {dt.datetime.fromtimestamp(start_date)}')
+        logger.info(f'Reddit: {subreddit}: Starting URLs collection from {dt.datetime.fromtimestamp(start_date)}')
         data = pd.DataFrame(
             api.search_submissions(
                 after=start_date,
@@ -145,10 +147,10 @@ def get_urls_reddit(start_date='', subreddits=[], stop_urls=[]):
         if len(data) > 0: urls |= set(data.url)
     
     if len(urls) > 0: 
-        logging.info(f'Found {len(urls)} urls')
+        logger.info(f'Reddit: {subreddit}: Found {len(urls)} urls')
         return list(urls)
     
-    logging.info('No urls found')
+    logger.info('Reddit: {subreddit}: No urls found')
     return False
 
 def save_urls_to_db(urls, ticker=''):
@@ -156,14 +158,14 @@ def save_urls_to_db(urls, ticker=''):
     """
     import pymongo as pm
     import pandas as pd
-    import logging
+    logger = create_logger()
 
-    logging.info(f'Got {len(urls)} URLs to save')
+    logger.info(f'SAVE TO DB: Got {len(urls)} URLs to save')
 
     client = pm.MongoClient('mongodb://localhost:27017')
 
     if  ticker and urls:
-        logging.info(f'Saving for ticker {ticker}')
+        logger.info(f'SAVE TO DB: {ticker}: Saving URLs')
         DB_NAME = 'news'
         COLLECTION_NAME = 'recommendations'
         db = client[DB_NAME]
@@ -224,7 +226,7 @@ def save_urls_to_db(urls, ticker=''):
             ])
         else: qty_stored_to_process_after = 0
 
-        logging.info(f'Saved {qty_stored_to_process_after - qty_stored_to_process_before} new urls for {ticker}')
+        logger.info(f'SAVE TO DB: {ticker}: Saved {qty_stored_to_process_after - qty_stored_to_process_before} new urls')
         return
     
     if urls:
@@ -240,28 +242,39 @@ def save_urls_to_db(urls, ticker=''):
                 upsert=True
             )
 
-        logging.info(f'Saved to {COLLECTION_NAME}')
+        logger.info(f'SAVE TO DB: NO TICKER: Saved to {COLLECTION_NAME}')
         return
     
-    logging.info('0 URLs saved. No ticker and no URLs provided.')
+    logger.info('SAVE TO DB: 0 URLs saved. No ticker and no URLs provided.')
     return False
 
+def collect_all_urls(ticker):
+        urls_finviz = get_urls_finviz(ticker)
+        if urls_finviz: save_urls_to_db(urls_finviz, ticker=ticker)
 
-if __name__ == '__main__': 
-    import logging
-    import datetime as dt
-    from yahoo_fin import stock_info as si 
+        urls_yahoo = get_urls_yahoo(ticker)
+        if urls_yahoo: save_urls_to_db(urls_yahoo, ticker=ticker)
 
-    logger = logging.getLogger()
-    handler = logging.FileHandler('logs/extract_urls.log')
+def create_logger():
+    import multiprocessing, logging
+    logger = multiprocessing.get_logger()
+    logger.setLevel(logging.INFO)
     formatter = logging.Formatter(
-            '%(asctime)s| %(levelname)s| %(message)s')
+        '[%(asctime)s| %(levelname)s| %(processName)s] %(message)s',
+        '%Y-%m-%d %H:%M:%S')
+    handler = logging.FileHandler('logs/multi_url_extraction.log')
     handler.setFormatter(formatter)
     if not len(logger.handlers): 
         logger.addHandler(handler)
+    return logger
 
-    logger.setLevel(logging.INFO)
-    logging.info(f'Starting URL extraction')
+if __name__ == '__main__': 
+    from multiprocessing import Pool
+    import datetime as dt
+    from yahoo_fin import stock_info as si 
+    logger = create_logger()
+
+    logger.info(f'Starting URL extraction')
 
     # stop_urls =[
     #     'youtu.be',
@@ -269,20 +282,18 @@ if __name__ == '__main__':
     #     'instagram.com'
     # ]
 
+    p = Pool()
+
     start_date = (dt.datetime.today()-dt.timedelta(7)).strftime('%Y-%m-%d')
     urls_reddit = get_urls_reddit(start_date=start_date)
-    if urls_reddit: save_urls_to_db(urls_reddit)
+    if urls_reddit: 
+        print(f'Saving {len(urls_reddit)} URLs from reddit')
+        save_urls_to_db(urls_reddit)
 
-    for ticker in si.tickers_sp500():
-        urls_finviz = get_urls_finviz(ticker)
-        if urls_finviz: save_urls_to_db(urls_finviz, ticker=ticker)
+    tickers = si.tickers_sp500()
 
-        urls_yahoo = get_urls_yahoo(ticker)
-        if urls_yahoo: save_urls_to_db(urls_yahoo, ticker=ticker)
+    result = p.map_async(collect_all_urls, tickers)
+    p.close()
+    p.join()
 
-    logging.info('Extraction finished')
-
-
-
-
-
+    logger.info('Extraction finished')
