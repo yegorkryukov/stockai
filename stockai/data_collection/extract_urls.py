@@ -75,7 +75,7 @@ def get_urls_yahoo(ticker):
     try: 
         options = Options()
         options.add_argument("--headless")
-        browser = webdriver.Firefox(options=options, executable_path=r'geckodriver')
+        browser = webdriver.PhantomJS()
         browser.get(url)
         logger.info(f'Finance.yahoo.com: {ticker}: Headless Firefox Initialized for URL: {url}')
         if browser.current_url == f'https://finance.yahoo.com/lookup?s={ticker}':
