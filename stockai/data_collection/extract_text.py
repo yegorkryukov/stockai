@@ -1,40 +1,28 @@
+from config.config import create_logger, get_ua
+
+logger = create_logger('text_extraction.log')
+
 def get_webdriver(browser=None, quit=False):
     """Selenium webdriver helper
     """
     from selenium import webdriver
     from selenium.webdriver.firefox.options import Options
-    import logging
 
     if browser:
         return browser
     elif browser and quit:
         browser.quit()
-        logging.info(':--- Quit headless browser')
+        logger.info(':--- Quit headless browser')
     else:
-        # profile = webdriver.FirefoxProfile()
-        # profile.set_preference(
-        #     'general.useragent.override', get_ua()
-        # )
+        profile = webdriver.FirefoxProfile()
+        profile.set_preference(
+            'general.useragent.override', get_ua()
+        )
         options = Options()
         options.add_argument("--headless")
         browser = webdriver.Firefox(options=options, executable_path=r'geckodriver')
-        logging.info(':--- Initialized headless browser')
+        logger.info(':--- Initialized headless browser')
         return browser
-
-def get_ua():
-    """Returns random browser User-Agent
-    """
-    from random import randint
-
-    UA = [
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36',
-        'Mozilla/5.0 CK={} (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.157 Safari/537.36'
-    ]
-    return UA[randint(0,len(UA)-1)]
-
 
 def get_html_from_url(url):
     """Returns html content of a page at `url` 
@@ -56,44 +44,35 @@ def get_html_from_url(url):
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.common.exceptions import TimeoutException
-    
-    
-    logger = create_logger()
-    # logger.info(f'==-- Getting HTML from {url}')
+
+    logger.info(f'get_html_from_url: {url}')
 
     if validators.url(url):
         try:
             url_outline = f'https://outline.com/{url}'
             browser = get_webdriver()
-            logger.info(f'==-- Trying OUTLINE.COM for {url_outline}')
+            logger.info(f'get_html_from_url: Trying OUTLINE.COM for {url_outline}')
             browser.get(url_outline)
             try:
                 WebDriverWait(browser, 3).until(
                     EC.presence_of_all_elements_located((By.CLASS_NAME, 'article-wrapper'))
                 )
             except TimeoutException:
-                logger.info(f'==-- WAITING FOR OUTLINE PAGE TO LOAD {url_outline}')
+                logger.info(f'get_html_from_url: WAITING FOR OUTLINE PAGE TO LOAD {url_outline}')
             finally:
                 html = browser.page_source
             browser.quit()
             
             if "We're sorry. This page failed to Outline." in html:
-                logger.info(f'==-- FAILED OUTLINE for {url_outline}')
+                logger.info(f'get_html_from_url:  FAILED OUTLINE for {url_outline}')
 
-                headers = {"User-Agent":get_ua()}
-                # requests.adapters.DEFAULT_RETRIES = 1
+                headers = {"User-Agent": get_ua()}
 
-                # url_google = f'https://www.google.com/search?&q=cache:{url}'
-                # logger.info(f'==-- Trying GOOGLE CACHE for {url_google}')
-                # url_get = requests.get(url_google, headers=headers, timeout=3)
-
-                # if 'class="g-recaptcha"' in url_get.text:
-                #     logger.info(f'==-- FAILED GOOGLE CACHE for {url_google}')
-                logger.info(f'==-- Trying ORIGINAL SOURCE for {url}')
+                logger.info(f'get_html_from_url: Trying ORIGINAL SOURCE for {url}')
                 url_get = requests.get(url, headers=headers, timeout=5)
                 
                 if url_get.status_code != 200:
-                    logger.info(f'==-- BAD RESPONSE FOR {url}.\n STATUS: {url_get.status_code}')
+                    logger.info(f'get_html_from_url: BAD RESPONSE FOR {url}\n STATUS: {url_get.status_code}')
                     return  {
                         'status_code' : url_get.status_code, 
                         'html'        : None
@@ -104,9 +83,9 @@ def get_html_from_url(url):
                 'html' : html
             }
         except Exception as e:
-            logger.info(f'==-- ERROR REQUESTING {url}.\n Error: {e}')
+            logger.info(f'get_html_from_url: ERROR REQUESTING {url}\n Error: {e}')
     else:
-        logger.info(f'==-- NOT A VALID URL {url}')
+        logger.info(f'get_html_from_url: NOT A VALID URL {url}')
         return  {
             'status_code' : None, 
             'html'        : None
@@ -136,9 +115,8 @@ def scrape(url):
     """
     from newspaper import Article, Config
     import re
-    logger = create_logger()
 
-    logger.info(f"==|| Trying extracting TEXT from {url}")
+    logger.info(f"SCRAPE: trying {url}")
     config = Config()
     config.memoize_articles = False
     config.fetch_images = False
@@ -156,12 +134,14 @@ def scrape(url):
             article.html = response['html']
             article.parse()
             article.nlp()
+
+            words_count = len((article.text).split())
             
-            if len((article.text).split()) > 200:
-                logger.info(f'==|| Extracted TEXT from URL: {url}.\n Title: "{article.title}"')
+            if words_count > 200:
+                logger.info(f'SCRAPE: Extracted TEXT from URL: {url}\n Title: "{article.title}"')
                 return {
                     'url'      : url,
-                    'datetime'     : article.publish_date,
+                    'datetime' : article.publish_date,
                     'title'    : article.title,
                     'text'     : " ".join(re.split(r'[\n\t]+', article.text)),
                     'keywords' : article.keywords,
@@ -169,17 +149,16 @@ def scrape(url):
                 }
             else:
                 logger.info(
-                    f'''==|| Could not extract TEXT from {url}.\n 
-                    Article too short: {len(article.text.split())} words''')
+                    f'''SCRAPE: Could not extract TEXT from {url}\n 
+                    Article too short: {words_count} words''')
         except Exception as e:
-            logger.info(f'==|| Could not extract TEXT from {url}.\n Error: {e}')
+            logger.info(f'SCRAPE: Could not extract TEXT from {url}\n Error: {e}')
     else:
-        logger.info(f'==|| Could not extract TEXT from {url}')
+        logger.info(f'SCRAPE: Could not extract TEXT from {url}')
     return False
 
 def delete_url(ticker, url):
     import pymongo as pm
-    logger = create_logger()
     client = pm.MongoClient('mongodb://localhost:27017')
     c = client['news']['recommendations']
 
@@ -188,7 +167,7 @@ def delete_url(ticker, url):
         {'$pull'  : {"urls_to_process" : url}}
     )
 
-    logger.info(f'Deleted from DB URL {url}')
+    logger.info(f'{ticker}| Deleted from DB URL {url}')
 
 def save_scraped_meta(ticker, url, doc):
     """Saves doc to MongoDB news.recommendations.news for ticker and url
@@ -200,7 +179,6 @@ def save_scraped_meta(ticker, url, doc):
     doc       : dict, keys: [url, date, title, text, keywords, summary]
     """
     import pymongo as pm
-    logger = create_logger()
     client = pm.MongoClient('mongodb://localhost:27017')
     c = client['news']['recommendations']
 
@@ -209,10 +187,10 @@ def save_scraped_meta(ticker, url, doc):
         {'$addToSet': {'news' : doc}},
         upsert=True
     )
-    logger.info(f"Saved title {doc['title']} for {url} to DB")
+    logger.info(f"{ticker}| Saved title {doc['title']} for {url} to DB")
 
 def scrape_urls(ticker):
-    """Processes all urls stored in MongoDB document with `ticker.not_processed` field
+    """Processes all urls stored in MongoDB document with `ticker.urls_to_process` field
 
     Parameters
     ----------
@@ -227,8 +205,6 @@ def scrape_urls(ticker):
     import time
     from random import uniform
 
-    logger = create_logger()
-
     client = pm.MongoClient('mongodb://localhost:27017')
     c = client['news']['recommendations']
 
@@ -241,60 +217,27 @@ def scrape_urls(ticker):
 
     if len(urls_to_process) > 0:
         urls_to_process = urls_to_process['urls_to_process']
-        logger.info(f'Found {len(urls_to_process)} URLs to scrape')
+        logger.info(f'{ticker}| Found {len(urls_to_process)} URLs to scrape')
     else:
-        logger.info(f'No URLs found in {c} to process for {ticker}')
+        logger.info(f'{ticker}| No URLs found in {c} to process for {ticker}')
         return False
     
     scraped = 0
     for url in urls_to_process:
-        wait = uniform(3,11)
-        logger.info(f'||{ticker}||........Sleeping for {wait} seconds..........')
-        time.sleep(wait)
         doc = scrape(url)
         if doc == 404:
-            logger.info(f'URL {url} got 404. Deleting from DB')
+            logger.info(f'{ticker}| URL {url} got 404. Deleting from DB')
             delete_url(ticker, url)
         elif doc:
+            logger.info(f'{ticker}| URL {url} got doc to save')
             save_scraped_meta(ticker, url, doc)
             delete_url(ticker, url)
             scraped += 1
         else:
-            logger.info(f'Did not get the text for {url}')
+            logger.info(f'{ticker}| Did not get the text for {url}')
+        wait = uniform(3,7)
+        logger.info(f'{ticker}| ........Sleeping for {wait} seconds..........')
+        time.sleep(wait)
+
     
     logger.info(f'{ticker}: Scraped {scraped} our of {len(urls_to_process)} URLs')
-
-def create_logger():
-    import multiprocessing, logging
-    logger = multiprocessing.get_logger()
-    logger.setLevel(logging.INFO)
-    formatter = logging.Formatter(
-        '[%(asctime)s| %(levelname)s| %(processName)s] %(message)s',
-        '%Y-%m-%d %H:%M:%S')
-    handler = logging.FileHandler('logs/multi_text_extraction.log')
-    handler.setFormatter(formatter)
-    if not len(logger.handlers): 
-        logger.addHandler(handler)
-    return logger
-
-# Start MongoDB
-# !brew services start mongodb-community@4.2
-
-# Stop MongoDB
-# !brew services stop mongodb-community@4.2
-
-if __name__ == '__main__': 
-    from yahoo_fin import stock_info as si 
-    from multiprocessing import Pool
-    import sys
-    logger = create_logger()
-
-    logger.info('Starting text extraction')
-
-    p = Pool()
-    tickers = si.tickers_sp500()
-    result = p.map_async(scrape_urls, tickers)
-    p.close()
-    p.join()
-
-    logger.info(f'Finished text extraction')
