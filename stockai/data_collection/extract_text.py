@@ -61,6 +61,7 @@ def get_html_from_url(url):
                 logger.info(f'get_html_from_url: WAITING FOR OUTLINE PAGE TO LOAD {url_outline}')
             finally:
                 html = browser.page_source
+                logger.info(f'get_html_from_url: got html with {len(html.split())} words for {url_outline}')
             browser.quit()
             
             if "We're sorry. This page failed to Outline." in html:
@@ -127,7 +128,7 @@ def scrape(url):
 
     response = get_html_from_url(url)
 
-    if response['status_code'] and len(response['html']) > 500:
+    if response['status_code'] and response['html']:
         try:
             article = Article(url=url, config=config)
             article.download_state = 2
