@@ -97,6 +97,7 @@ def create_dataset(
     # the news over the weekend hence backfill
     df.adjclose = df.adjclose.fillna(method='backfill')
     df.close = df.close.fillna(method='backfill')
+    df.ticker = df.ticker.fillna(method='backfill')
 
     # drop rows without the stock price
     df = df[df.adjclose.notna()]
@@ -106,4 +107,4 @@ def create_dataset(
 
     # drop rows without date
     df = df[df.index.notna()]
-    return df.drop(['open','high','low','close','volume','ticker'], axis=1)
+    return df
