@@ -2,6 +2,9 @@ import pandas as pd
 import requests, os
 from yahoo_fin import stock_info as si 
 import numpy as np
+import logging
+
+logger = logging.getLogger()
 
 
 def get_news_page(
@@ -53,11 +56,10 @@ def create_dataset(
     """
     # check if files exist
     filepath = f'./data/{ticker}_{start_date}_{end_date}.csv'
-    print(filepath)
     
     if os.path.exists(filepath):
-        print(f'File {filepath} exists. Reading and returning.')
         data = pd.read_csv(filepath)
+        logger.info(f'File {filepath} exists. Read {len(data)} rows.')
     else:
         os.mkdir('./data/')
         result = get_news_page(
@@ -82,6 +84,7 @@ def create_dataset(
                 data = data.append(temp, ignore_index=True)
                 page += 1
                 data.to_csv(filepath, index=False)
+                logger.info(f'Saved {len(data)} rows to {filepath}')
     
     data.date = pd.to_datetime(data.date, errors='coerce', utc=True)
     t_data = si.get_data(ticker, start_date=start_date, end_date=end_date)
@@ -95,9 +98,8 @@ def create_dataset(
     # fill adjclose for over the weekends and holiday
     # logic is the price on monday close is the result of 
     # the news over the weekend hence backfill
-    df.adjclose = df.adjclose.fillna(method='backfill')
-    df.close = df.close.fillna(method='backfill')
-    df.ticker = df.ticker.fillna(method='backfill')
+
+    df.fillna(method='backfill', inplace=True)
 
     # drop rows without the stock price
     df = df[df.adjclose.notna()]
