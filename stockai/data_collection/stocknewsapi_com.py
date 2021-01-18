@@ -91,14 +91,13 @@ def create_dataset(
 
     data['all_text'] = data.title + data.text
 
-    df = data.groupby(data.date.dt.date)['all_text'].apply(','.join).reset_index().set_index('date')
+    df = data.groupby(data.date.dt.date)['all_text'].apply(' '.join).reset_index().set_index('date')
     df.columns = ['text']
     df = df.join(t_data)
 
     # fill adjclose for over the weekends and holiday
     # logic is the price on monday close is the result of 
     # the news over the weekend hence backfill
-
     df.fillna(method='backfill', inplace=True)
 
     # drop rows without the stock price

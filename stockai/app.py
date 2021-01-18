@@ -11,5 +11,8 @@ if st.sidebar.button('Collect data'):
     data = create_dataset(
         news_api_key
     )
-    st.plotly_chart(plot_ticker_data(data))
-    st.write(data)
+    with st.beta_expander('Graph'):
+        st.plotly_chart(plot_ticker_data(data))
+    
+    with st.beta_expander(f'Data ({len(data)} rows)'):
+        st.write(data)
