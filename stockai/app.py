@@ -61,6 +61,13 @@ data['tfidf'] = vectorizer.fit_transform(data['clean_text'])
 cols = ['tfidf', 'adjclose']
 train_data, test_data = data[cols].iloc[0:int(len(data)*0.7), :], data[cols].iloc[int(len(data)*0.7):, :]
 
+X, y = vectorizer.fit_transform([' '.join(text) for text in texts]), data.adjclose
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, shuffle=False)
+
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
+
 # plot train and test data
 f, ax = plt.subplots(figsize=(10,5))
 plt.title(f'{ticker} adjclose prices')
@@ -68,18 +75,6 @@ plt.xlabel('Date')
 plt.ylabel('Price')
 plt.plot(train_data.adjclose, 'blue', label='Training Data')
 plt.plot(test_data.adjclose, 'green', label='Testing Data')
-
-
-
-X, y = vectorizer.fit_transform([' '.join(text) for text in texts]), data.adjclose
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.3, shuffle=False)
-
-st.write(X_train.shape, X.shape)
-
-model.fit(X_train, y_train)
-y_pred = model.predict(X_test)
-
 plt.plot(test_data.index, y_pred, label='Predicted Value')
 plt.legend();
 col2.pyplot(f)
