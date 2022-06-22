@@ -1,6 +1,6 @@
 
 plotly==4.14.1
-numpy==1.19.2
+numpy==1.22.0
 streamlit==0.74.1
 altair==4.1.0
 gensim==3.8.3
